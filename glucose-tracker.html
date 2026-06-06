@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Glucose Log">
+<meta name="theme-color" content="#0f172a">
+<title>Glucose Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg:#0f172a; --surface:#1e293b; --surface2:#263348;
+  --border:rgba(255,255,255,0.08); --border2:rgba(255,255,255,0.14);
+  --text:#f1f5f9; --text2:#94a3b8; --text3:#64748b;
+  --green:#34d399; --green-bg:rgba(52,211,153,0.12);
+  --red:#f87171; --red-bg:rgba(248,113,113,0.14);
+  --amber:#fbbf24; --amber-bg:rgba(251,191,36,0.12);
+  --blue:#60a5fa; --blue-bg:rgba(96,165,250,0.1);
+  --teal:#2dd4bf; --teal-bg:rgba(45,212,191,0.1);
+  --radius:16px; --radius-sm:10px;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;}
+body{padding-top:var(--safe-top);padding-bottom:calc(var(--safe-bottom)+8px);overflow-x:hidden;}
+.app{display:flex;flex-direction:column;min-height:100vh;max-width:430px;margin:0 auto;}
+
+.topbar{padding:18px 20px 0;display:flex;align-items:center;justify-content:space-between;}
+.app-title{font-size:22px;font-weight:600;letter-spacing:-0.5px;}
+.app-date{font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;}
+
+.nav{display:flex;gap:6px;padding:14px 20px 0;}
+.ntab{flex:1;padding:9px 0;font-size:13px;font-weight:500;text-align:center;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text3);background:transparent;font-family:'DM Sans',sans-serif;transition:all 0.15s;}
+.ntab.active{background:var(--blue-bg);border-color:rgba(96,165,250,0.35);color:var(--blue);}
+
+.ref-banner{margin:14px 20px 0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;}
+.ref-list{list-style:none;display:flex;flex-direction:column;gap:5px;}
+.ref-list li{font-size:13px;color:var(--text2);display:flex;align-items:center;gap:8px;}
+.ref-list li::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--text3);flex-shrink:0;}
+.ref-val{font-family:'DM Mono',monospace;font-size:13px;color:var(--text);margin-left:auto;}
+
+.scroll-area{flex:1;overflow-y:auto;padding:14px 20px 30px;-webkit-overflow-scrolling:touch;}
+
+.date-bar{display:flex;align-items:center;gap:8px;margin-bottom:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;}
+.date-nav-btn{background:transparent;border:none;color:var(--text2);cursor:pointer;font-size:18px;padding:0 4px;line-height:1;}
+.date-nav-btn:active{color:var(--text);}
+.date-display{font-family:'DM Mono',monospace;font-size:13px;color:var(--text);white-space:nowrap;flex:1;text-align:center;}
+.today-chip{font-size:11px;padding:3px 9px;background:var(--blue-bg);border:1px solid rgba(96,165,250,0.3);border-radius:20px;color:var(--blue);cursor:pointer;white-space:nowrap;}
+
+.slot-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:10px;transition:border-color 0.2s,background 0.2s;}
+.slot-card.out-of-range{background:var(--red-bg);border-color:rgba(248,113,113,0.45);}
+.slot-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.slot-name{font-size:13px;color:var(--text2);display:flex;align-items:center;gap:7px;}
+.badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;}
+.badge-normal{background:var(--green-bg);color:var(--green);}
+.badge-high{background:var(--red-bg);color:var(--red);}
+.badge-low{background:var(--amber-bg);color:var(--amber);}
+
+.reading-row{display:flex;align-items:baseline;gap:6px;margin-bottom:4px;}
+.reading-val{font-size:36px;font-weight:600;font-family:'DM Mono',monospace;letter-spacing:-1px;}
+.reading-val.normal{color:var(--green);}
+.reading-val.high{color:var(--red);}
+.reading-val.low{color:var(--amber);}
+.reading-unit{font-size:14px;color:var(--text3);}
+.edit-btn{margin-left:auto;background:transparent;border:1px solid var(--border2);border-radius:8px;padding:5px 12px;font-size:12px;color:var(--text3);cursor:pointer;font-family:'DM Sans',sans-serif;}
+.edit-btn:active{background:var(--surface2);}
+
+/* Logged time */
+.logged-time{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:12px;display:flex;align-items:center;gap:5px;}
+.logged-time::before{content:'🕐';font-size:11px;}
+
+.input-row{display:flex;gap:8px;align-items:center;}
+.g-input{flex:1;height:48px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 14px;font-size:22px;font-weight:500;font-family:'DM Mono',monospace;color:var(--text);outline:none;-webkit-appearance:none;}
+.g-input:focus{border-color:rgba(96,165,250,0.5);}
+.g-unit{font-size:13px;color:var(--text3);white-space:nowrap;}
+.save-btn{height:48px;padding:0 18px;background:var(--blue-bg);border:1px solid rgba(96,165,250,0.35);border-radius:var(--radius-sm);font-size:14px;font-weight:500;color:var(--blue);cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;}
+.save-btn:active{background:rgba(96,165,250,0.2);}
+
+.add-extra-btn{display:flex;align-items:center;gap:6px;margin-top:10px;padding:7px 12px;background:transparent;border:1px dashed var(--border2);border-radius:var(--radius-sm);font-size:12px;color:var(--text3);cursor:pointer;font-family:'DM Sans',sans-serif;width:100%;}
+.add-extra-btn:active{background:var(--surface2);}
+.plus-circle{width:18px;height:18px;border-radius:50%;border:1px solid var(--text3);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.extra-card{margin-top:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;}
+.extra-card.out-of-range{background:rgba(248,113,113,0.1);border-color:rgba(248,113,113,0.3);}
+.extra-label{font-size:12px;color:var(--text3);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
+.extra-val-row{display:flex;align-items:baseline;gap:6px;margin-bottom:4px;}
+.extra-val{font-size:28px;font-weight:600;font-family:'DM Mono',monospace;letter-spacing:-0.5px;}
+.extra-val.normal{color:var(--green);}
+.extra-val.high{color:var(--red);}
+.extra-val.low{color:var(--amber);}
+.extra-time{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;display:flex;align-items:center;gap:5px;}
+.extra-time::before{content:'🕐';font-size:11px;}
+
+.walk-section{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
+.section-label{font-size:11px;font-weight:600;color:var(--teal);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:5px;}
+.walk-opts{display:flex;gap:6px;flex-wrap:wrap;}
+.wopt{padding:7px 13px;font-size:13px;border:1px solid var(--border2);border-radius:20px;cursor:pointer;color:var(--text3);background:transparent;font-family:'DM Sans',sans-serif;transition:all 0.15s;}
+.wopt.sel{background:var(--teal-bg);border-color:rgba(45,212,191,0.4);color:var(--teal);font-weight:500;}
+
+.notes-section{margin-top:12px;padding-top:12px;border-top:1px solid rgba(248,113,113,0.2);}
+.notes-label{font-size:11px;font-weight:600;color:var(--red);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px;}
+.notes-ta{width:100%;min-height:68px;background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.25);border-radius:var(--radius-sm);padding:10px 12px;font-size:14px;color:var(--text);font-family:'DM Sans',sans-serif;line-height:1.5;outline:none;resize:none;}
+.notes-ta:focus{border-color:rgba(248,113,113,0.5);}
+.notes-saved{background:rgba(248,113,113,0.07);border:1px solid rgba(248,113,113,0.2);border-radius:var(--radius-sm);padding:10px 12px;font-size:14px;color:var(--text2);line-height:1.5;}
+.note-btn{margin-top:8px;padding:7px 14px;background:transparent;border:1px solid var(--border2);border-radius:8px;font-size:12px;color:var(--text3);cursor:pointer;font-family:'DM Sans',sans-serif;}
+
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;}
+.chart-title{font-size:11px;font-weight:600;color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:12px;}
+.chart-wrap{position:relative;}
+.trend-filter{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;}
+.tpill{padding:5px 11px;font-size:12px;border:1px solid var(--border2);border-radius:20px;cursor:pointer;color:var(--text3);background:transparent;font-family:'DM Sans',sans-serif;}
+.tpill.active{background:var(--blue-bg);border-color:rgba(96,165,250,0.35);color:var(--blue);}
+.legend-row{display:flex;gap:14px;margin-top:10px;flex-wrap:wrap;}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);}
+.leg-dot{width:8px;height:8px;border-radius:50%;}
+
+.hist-date-div{font-size:11px;font-weight:600;color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;padding:14px 0 6px;font-family:'DM Mono',monospace;}
+.hist-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden;}
+.hist-card.out-of-range{background:var(--red-bg);border-color:rgba(248,113,113,0.35);}
+.hist-main{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;}
+.hist-left{flex:1;}
+.hist-slot{font-size:13px;color:var(--text2);}
+.hist-meta{display:flex;align-items:center;gap:8px;margin-top:3px;flex-wrap:wrap;}
+.hist-time{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;}
+.hist-walk{font-size:11px;color:var(--teal);}
+.hist-val{font-size:20px;font-weight:600;font-family:'DM Mono',monospace;}
+.hist-note{padding:0 16px 12px;font-size:13px;color:#fca5a5;line-height:1.4;display:flex;gap:6px;}
+
+.action-row{display:flex;gap:8px;margin-bottom:12px;}
+.action-btn{flex:1;padding:12px 10px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:7px;font-weight:500;}
+.action-btn.primary{background:var(--blue-bg);border-color:rgba(96,165,250,0.35);color:var(--blue);}
+.action-btn:active{opacity:0.8;}
+
+.empty{text-align:center;padding:48px 20px;color:var(--text3);}
+.empty-icon{font-size:40px;margin-bottom:12px;}
+.empty-text{font-size:14px;line-height:1.6;}
+
+.install-hint{margin:12px 20px 0;background:var(--blue-bg);border:1px solid rgba(96,165,250,0.2);border-radius:var(--radius-sm);padding:10px 14px;font-size:12px;color:var(--blue);line-height:1.5;display:flex;gap:8px;align-items:flex-start;}
+.hint-close{margin-left:auto;background:transparent;border:none;color:var(--blue);cursor:pointer;font-size:16px;padding:0 0 0 8px;flex-shrink:0;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="app-title">Glucose Log</div>
+    <div class="app-date" id="topDate"></div>
+  </div>
+
+  <div id="installHint" class="install-hint">
+    Tip: in Safari tap Share → Add to Home Screen to use as an app
+    <button class="hint-close" onclick="dismissHint()" aria-label="Dismiss">&#x2715;</button>
+  </div>
+
+  <div class="ref-banner">
+    <ul class="ref-list">
+      <li>Fasting upper limit <span class="ref-val">5.5 mmol/L</span></li>
+      <li>1 hr after meal upper limit <span class="ref-val">7.8 mmol/L</span></li>
+      <li>2 hr after meal upper limit <span class="ref-val">6.7 mmol/L</span></li>
+    </ul>
+  </div>
+
+  <div class="nav">
+    <button class="ntab active" onclick="setView('today')" id="tab-today">Today</button>
+    <button class="ntab" onclick="setView('trend')" id="tab-trend">Trend</button>
+    <button class="ntab" onclick="setView('history')" id="tab-history">History</button>
+  </div>
+
+  <div class="scroll-area">
+    <div id="view-today"></div>
+    <div id="view-trend" style="display:none"></div>
+    <div id="view-history" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+const SLOTS=[
+  {id:'fasting',       label:'Fasting (before breakfast)',icon:'🌙',normal:[3.9,5.5],has2hr:false},
+  {id:'post_breakfast',label:'1 hr after breakfast',      icon:'☕',normal:[3.9,7.8],has2hr:true},
+  {id:'post_lunch',    label:'1 hr after lunch',          icon:'🥣',normal:[3.9,7.8],has2hr:true},
+  {id:'post_dinner',   label:'1 hr after dinner',         icon:'🌒',normal:[3.9,7.8],has2hr:true},
+];
+const NORMAL_2HR=[3.9,6.7];
+const WALKS=['No walk','10 min','20 min','30+ min'];
+const START='2026-06-04';
+const KEY='glucoseLog_v4';
+
+const todayKey=()=>new Date().toISOString().split('T')[0];
+const fmt1=v=>parseFloat(v.toFixed(1));
+const escHtml=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function nowTime(){
+  const n=new Date();
+  return n.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+}
+function fmtTime(t){return t||'';}
+
+function load(){try{return JSON.parse(localStorage.getItem(KEY)||'{}');}catch{return {};}}
+function save(d){try{localStorage.setItem(KEY,JSON.stringify(d));}catch{alert('Storage full — please export your data.');}}
+
+let data=load();
+let view='today';
+let activeDate=todayKey();
+let trendSlot='all';
+let charts={};
+
+function classify(v,normal){if(v<normal[0])return 'low';if(v>normal[1])return 'high';return 'normal';}
+function statusColor(cls){return cls==='normal'?'#34d399':cls==='high'?'#f87171':'#fbbf24';}
+function isOutOfRange(entry,slot){
+  if(!entry)return false;
+  if(entry.val!==undefined&&classify(entry.val,slot.normal)!=='normal')return true;
+  if(entry.val2!==undefined&&classify(entry.val2,NORMAL_2HR)!=='normal')return true;
+  return false;
+}
+
+function dateRange(from){
+  const dates=[];
+  const s=new Date((from||START)+'T12:00:00'),e=new Date();
+  for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1))
+    dates.push(d.toISOString().split('T')[0]);
+  return dates;
+}
+function fmtDateLong(d){
+  if(d===todayKey())return 'Today';
+  return new Date(d+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',month:'short',day:'numeric'});
+}
+function fmtShort(d){const dt=new Date(d+'T12:00:00');return (dt.getMonth()+1)+'/'+(dt.getDate());}
+function prevDay(d){const dt=new Date(d+'T12:00:00');dt.setDate(dt.getDate()-1);return dt.toISOString().split('T')[0];}
+function nextDay(d){const dt=new Date(d+'T12:00:00');dt.setDate(dt.getDate()+1);return dt.toISOString().split('T')[0];}
+
+function dismissHint(){document.getElementById('installHint').style.display='none';localStorage.setItem('hintDismissed','1');}
+if(localStorage.getItem('hintDismissed'))document.getElementById('installHint').style.display='none';
+
+function setView(v){
+  view=v;
+  ['today','trend','history'].forEach(x=>{
+    document.getElementById('view-'+x).style.display=x===v?'':'none';
+    document.getElementById('tab-'+x).classList.toggle('active',x===v);
+  });
+  if(v==='today')renderToday();
+  if(v==='trend')renderTrend();
+  if(v==='history')renderHistory();
+}
+
+// ── TODAY ──
+function renderToday(){
+  const el=document.getElementById('view-today');
+  const isToday=activeDate===todayKey();
+  const canGoForward=activeDate<todayKey();
+
+  el.innerHTML=`<div class="date-bar">
+    <button class="date-nav-btn" onclick="goDay(-1)" aria-label="Previous day">&#8592;</button>
+    <span class="date-display">${isToday?'<span style="color:var(--blue)">Today</span>':'<span>'+new Date(activeDate+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+'</span>'}</span>
+    <button class="date-nav-btn" onclick="goDay(1)" aria-label="Next day" ${canGoForward?'':'disabled style="opacity:0.3;cursor:default"'}>&#8594;</button>
+    ${!isToday?`<span class="today-chip" onclick="goToday()">Today</span>`:''}
+  </div>`;
+
+  const td=data[activeDate]||{};
+  if(activeDate>todayKey()){el.innerHTML+='<div class="empty"><div class="empty-text">Cannot log future dates.</div></div>';return;}
+
+  const frag=document.createDocumentFragment();
+  SLOTS.forEach(slot=>{
+    const entry=td[slot.id];
+    const val=entry?.val;
+    const val2=entry?.val2;
+    const walk=entry?.walk||'';
+    const note=entry?.note||'';
+    const loggedAt=entry?.time||'';
+    const loggedAt2=entry?.time2||'';
+    const hasSaved=val!==undefined;
+    const cls=hasSaved?classify(val,slot.normal):'';
+    const isHigh=hasSaved&&cls==='high';
+    const oor=isOutOfRange(entry,slot);
+    const cls2=val2!==undefined?classify(val2,NORMAL_2HR):'';
+    const oor2=val2!==undefined&&cls2!=='normal';
+    const show2hrInput=entry?.show2hr&&val2===undefined;
+
+    const card=document.createElement('div');
+    card.className='slot-card'+(oor?' out-of-range':'');
+
+    if(hasSaved){
+      const walkBtns=WALKS.map(w=>`<button class="wopt${walk===w?' sel':''}" onclick="pickWalk('${activeDate}','${slot.id}','${w}')">${w}</button>`).join('');
+
+      let extra2='';
+      if(slot.has2hr){
+        if(val2!==undefined){
+          extra2=`<div class="extra-card${oor2?' out-of-range':''}">
+            <div class="extra-label"><span>2 hrs after meal</span><button class="edit-btn" style="font-size:11px;padding:3px 8px" onclick="editExtra('${activeDate}','${slot.id}')">Edit</button></div>
+            <div class="extra-val-row"><span class="extra-val ${cls2}">${fmt1(val2).toFixed(1)}</span><span class="reading-unit">mmol/L</span><span class="badge badge-${cls2}" style="margin-left:6px">${cls2.charAt(0).toUpperCase()+cls2.slice(1)}</span></div>
+            ${loggedAt2?`<div class="extra-time">Logged at ${fmtTime(loggedAt2)}</div>`:''}
+          </div>`;
+        }else if(show2hrInput){
+          extra2=`<div class="extra-card">
+            <div class="extra-label">2 hr reading</div>
+            <div class="input-row"><input class="g-input" type="number" inputmode="decimal" step="0.1" min="1" max="30" placeholder="0.0" id="inp2_${slot.id}"><span class="g-unit">mmol/L</span><button class="save-btn" onclick="saveExtra('${activeDate}','${slot.id}')">Save</button></div>
+          </div>`;
+        }else{
+          extra2=`<button class="add-extra-btn" onclick="showExtra('${activeDate}','${slot.id}')"><span class="plus-circle">+</span> Add 2 hr reading</button>`;
+        }
+      }
+
+      let noteHtml='';
+      if(isHigh||oor2){
+        if(note){
+          noteHtml=`<div class="notes-section"><div class="notes-label">What you ate</div><div class="notes-saved">${escHtml(note)}</div><button class="note-btn" onclick="clearNote('${activeDate}','${slot.id}')">Edit note</button></div>`;
+        }else{
+          noteHtml=`<div class="notes-section"><div class="notes-label">Reading above target — what did you eat?</div><textarea class="notes-ta" id="ta_${slot.id}" placeholder="e.g. white rice, fruit juice, bread…" rows="3"></textarea><button class="note-btn" style="color:var(--red);border-color:rgba(248,113,113,0.3)" onclick="saveNote('${activeDate}','${slot.id}')">Save note</button></div>`;
+        }
+      }
+
+      card.innerHTML=`
+        <div class="slot-top"><div class="slot-name"><span>${slot.icon}</span>${slot.label}</div><span class="badge badge-${cls}">${cls.charAt(0).toUpperCase()+cls.slice(1)}</span></div>
+        <div class="reading-row"><span class="reading-val ${cls}">${fmt1(val).toFixed(1)}</span><span class="reading-unit">mmol/L</span><button class="edit-btn" onclick="editSlot('${activeDate}','${slot.id}')">Edit</button></div>
+        <div class="logged-time">Logged at ${fmtTime(loggedAt)}</div>
+        ${extra2}
+        <div class="walk-section"><div class="section-label">🚶 Did you walk after this?</div><div class="walk-opts">${walkBtns}</div></div>
+        ${noteHtml}`;
+    }else{
+      card.innerHTML=`
+        <div class="slot-top"><div class="slot-name"><span>${slot.icon}</span>${slot.label}</div></div>
+        <div class="input-row"><input class="g-input" type="number" inputmode="decimal" step="0.1" min="1" max="30" placeholder="0.0" id="inp_${slot.id}" aria-label="${slot.label} in mmol/L"><span class="g-unit">mmol/L</span><button class="save-btn" onclick="saveSlot('${activeDate}','${slot.id}')">Save</button></div>`;
+    }
+    frag.appendChild(card);
+  });
+  el.appendChild(frag);
+}
+
+function goDay(dir){
+  const next=dir>0?nextDay(activeDate):prevDay(activeDate);
+  if(next<START)return;
+  activeDate=next;renderToday();
+}
+function goToday(){activeDate=todayKey();renderToday();}
+
+function saveSlot(date,slotId){
+  const inp=document.getElementById('inp_'+slotId);
+  const raw=parseFloat(inp.value);
+  if(isNaN(raw)||raw<1||raw>30){inp.style.borderColor='#f87171';setTimeout(()=>inp.style.borderColor='',1500);return;}
+  if(!data[date])data[date]={};
+  data[date][slotId]={val:fmt1(raw),walk:'',note:'',show2hr:false,time:nowTime()};
+  save(data);renderToday();
+}
+function editSlot(date,slotId){if(data[date])delete data[date][slotId];save(data);renderToday();}
+function showExtra(date,slotId){if(!data[date]?.[slotId])return;data[date][slotId].show2hr=true;save(data);renderToday();}
+function saveExtra(date,slotId){
+  const inp=document.getElementById('inp2_'+slotId);if(!inp)return;
+  const raw=parseFloat(inp.value);
+  if(isNaN(raw)||raw<1||raw>30){inp.style.borderColor='#f87171';setTimeout(()=>inp.style.borderColor='',1500);return;}
+  if(!data[date]?.[slotId])return;
+  data[date][slotId].val2=fmt1(raw);
+  data[date][slotId].time2=nowTime();
+  save(data);renderToday();
+}
+function editExtra(date,slotId){if(!data[date]?.[slotId])return;delete data[date][slotId].val2;delete data[date][slotId].time2;data[date][slotId].show2hr=true;save(data);renderToday();}
+function pickWalk(date,slotId,w){if(!data[date]?.[slotId])return;data[date][slotId].walk=w;save(data);renderToday();}
+function saveNote(date,slotId){const ta=document.getElementById('ta_'+slotId);if(!ta||!data[date]?.[slotId])return;data[date][slotId].note=ta.value.trim();save(data);renderToday();}
+function clearNote(date,slotId){if(!data[date]?.[slotId])return;data[date][slotId].note='';save(data);renderToday();}
+
+// ── TREND ──
+function renderTrend(){
+  const el=document.getElementById('view-trend');
+  const pills=['all','fasting','post_breakfast','post_lunch','post_dinner'].map((s,i)=>
+    `<button class="tpill${trendSlot===s?' active':''}" id="tp_${s}" onclick="setTrendSlot('${s}')">${['All','Fasting','Breakfast','Lunch','Dinner'][i]}</button>`).join('');
+  el.innerHTML=`
+    <div class="chart-card">
+      <div class="chart-title">Readings since June 4</div>
+      <div class="trend-filter">${pills}</div>
+      <div class="chart-wrap" style="height:210px"><canvas id="trendChart" role="img" aria-label="Trend chart">Trend chart.</canvas></div>
+      <div class="legend-row">
+        <div class="leg-item"><div class="leg-dot" style="background:#34d399"></div>Normal</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#f87171"></div>High</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#fbbf24"></div>Low</div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Today's readings</div>
+      <div class="chart-wrap" style="height:150px"><canvas id="todayChart" role="img" aria-label="Today's readings">Today's chart.</canvas></div>
+    </div>`;
+  buildTrendChart();buildTodayChart();
+}
+function setTrendSlot(s){
+  trendSlot=s;
+  ['all','fasting','post_breakfast','post_lunch','post_dinner'].forEach(x=>{const el=document.getElementById('tp_'+x);if(el)el.classList.toggle('active',x===s);});
+  buildTrendChart();
+}
+function buildTrendChart(){
+  const dates=dateRange();const labels=dates.map(fmtShort);
+  const colors={fasting:'#60a5fa',post_breakfast:'#2dd4bf',post_lunch:'#fbbf24',post_dinner:'#c084fc'};
+  const dashes={fasting:[],post_breakfast:[5,3],post_lunch:[2,3],post_dinner:[8,3]};
+  let datasets=[];
+  if(trendSlot==='all'){
+    SLOTS.forEach(slot=>{
+      const vals=dates.map(d=>data[d]?.[slot.id]?.val??null);
+      datasets.push({label:slot.label.replace('1 hr after ',''),data:vals,borderColor:colors[slot.id],borderDash:dashes[slot.id],backgroundColor:'transparent',
+        pointBackgroundColor:vals.map(v=>v!==null?statusColor(classify(v,slot.normal)):'transparent'),
+        pointBorderColor:vals.map(v=>v!==null?statusColor(classify(v,slot.normal)):'transparent'),
+        pointRadius:vals.map(v=>v!==null?4:0),tension:0.3,spanGaps:true,fill:false,borderWidth:2});
+    });
+  }else{
+    const slot=SLOTS.find(s=>s.id===trendSlot);
+    const vals=dates.map(d=>data[d]?.[slot.id]?.val??null);
+    const vals2=dates.map(d=>data[d]?.[slot.id]?.val2??null);
+    datasets.push({label:'1 hr',data:vals,borderColor:colors[trendSlot],backgroundColor:'rgba(96,165,250,0.05)',
+      pointBackgroundColor:vals.map(v=>v!==null?statusColor(classify(v,slot.normal)):'transparent'),
+      pointBorderColor:vals.map(v=>v!==null?statusColor(classify(v,slot.normal)):'transparent'),
+      pointRadius:vals.map(v=>v!==null?5:0),tension:0.3,spanGaps:true,fill:true,borderWidth:2});
+    if(trendSlot!=='fasting'){
+      datasets.push({label:'2 hr',data:vals2,borderColor:'#a78bfa',borderDash:[4,3],backgroundColor:'transparent',
+        pointBackgroundColor:vals2.map(v=>v!==null?statusColor(classify(v,NORMAL_2HR)):'transparent'),
+        pointBorderColor:vals2.map(v=>v!==null?statusColor(classify(v,NORMAL_2HR)):'transparent'),
+        pointRadius:vals2.map(v=>v!==null?4:0),tension:0.3,spanGaps:true,fill:false,borderWidth:1.5});
+    }
+  }
+  if(charts.trend)charts.trend.destroy();
+  charts.trend=new Chart(document.getElementById('trendChart'),{type:'line',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:trendSlot==='all'||(trendSlot!=='fasting'),position:'bottom',labels:{color:'#64748b',font:{size:11,family:'DM Sans'},boxWidth:10,padding:10}},
+      tooltip:{callbacks:{label:c=>c.raw!==null?(c.dataset.label+': '+c.raw.toFixed(1)+' mmol/L'):''},backgroundColor:'#1e293b',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,titleColor:'#94a3b8',bodyColor:'#f1f5f9'}},
+    scales:{y:{min:2,max:13,ticks:{color:'#475569',font:{size:11},callback:v=>v.toFixed(1)},grid:{color:'rgba(255,255,255,0.05)'},border:{display:false}},
+      x:{ticks:{color:'#475569',font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:8},grid:{display:false},border:{display:false}}}}});
+}
+function buildTodayChart(){
+  const td=data[todayKey()]||{};
+  const vals=SLOTS.map(s=>td[s.id]?.val??null);
+  const ptColors=SLOTS.map((s,i)=>vals[i]!==null?statusColor(classify(vals[i],s.normal)):'transparent');
+  if(charts.today)charts.today.destroy();
+  charts.today=new Chart(document.getElementById('todayChart'),{type:'line',data:{labels:['Fasting','Post-breakfast','Post-lunch','Post-dinner'],
+    datasets:[{data:vals,borderColor:'#60a5fa',backgroundColor:'rgba(96,165,250,0.05)',pointBackgroundColor:ptColors,pointBorderColor:ptColors,pointRadius:vals.map(v=>v!==null?6:0),fill:true,tension:0.3,spanGaps:true,borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw!==null?c.raw.toFixed(1)+' mmol/L':'Not logged'},backgroundColor:'#1e293b',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,bodyColor:'#f1f5f9'}},
+      scales:{y:{min:2,max:13,ticks:{color:'#475569',font:{size:11},callback:v=>v.toFixed(1)},grid:{color:'rgba(255,255,255,0.05)'},border:{display:false}},
+        x:{ticks:{color:'#475569',font:{size:11},autoSkip:false,maxRotation:0},grid:{display:false},border:{display:false}}}}});
+}
+
+// ── HISTORY ──
+function renderHistory(){
+  const el=document.getElementById('view-history');
+  el.innerHTML=`<div class="action-row"><button class="action-btn primary" onclick="exportCSV()">&#8675; Export CSV</button></div>`;
+
+  const allDates=dateRange();
+  const datesWithData=new Set(Object.keys(data).filter(d=>SLOTS.some(s=>data[d]?.[s.id]?.val!==undefined)));
+  const missing=allDates.filter(d=>!datesWithData.has(d)&&d<=todayKey());
+  if(missing.length){
+    el.innerHTML+=`<div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--amber);">
+      ${missing.length} day${missing.length>1?'s':''} with no readings — tap ← on Today tab to fill them in.
+    </div>`;
+  }
+
+  const dates=allDates.reverse().filter(d=>data[d]&&SLOTS.some(s=>data[d][s.id]?.val!==undefined));
+  if(!dates.length){
+    el.innerHTML+=`<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">No entries yet.<br>Use the Today tab to log readings.</div></div>`;
+    return;
+  }
+
+  let html='';
+  dates.forEach(date=>{
+    const dayData=data[date]||{};
+    const daySlots=SLOTS.filter(s=>dayData[s.id]?.val!==undefined);
+    if(!daySlots.length)return;
+    html+=`<div class="hist-date-div">${fmtDateLong(date)}</div>`;
+    daySlots.forEach(slot=>{
+      const e=dayData[slot.id];
+      const cls=classify(e.val,slot.normal);
+      const col=statusColor(cls);
+      const oor=isOutOfRange(e,slot);
+      const timeHtml=e.time?`<span class="hist-time">🕐 ${e.time}</span>`:'';
+      const walkHtml=e.walk?`<span class="hist-walk">🚶 ${e.walk}</span>`:'';
+      const noteHtml=e.note?`<div class="hist-note"><span>🍽</span><span>${escHtml(e.note)}</span></div>`:'';
+      let extra2html='';
+      if(e.val2!==undefined){
+        const cls2=classify(e.val2,NORMAL_2HR);const col2=statusColor(cls2);
+        const time2Html=e.time2?` · 🕐 ${e.time2}`:'';
+        extra2html=`<div style="padding:0 16px 10px;font-size:13px;color:var(--text3);display:flex;justify-content:space-between;align-items:center">
+          <span>2 hr${time2Html}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:16px;font-weight:600;color:${col2}">${e.val2.toFixed(1)} mmol/L</span>
+        </div>`;
+      }
+      html+=`<div class="hist-card${oor?' out-of-range':''}">
+        <div class="hist-main">
+          <div class="hist-left">
+            <div class="hist-slot">${slot.icon} ${slot.label}</div>
+            <div class="hist-meta">${timeHtml}${walkHtml}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="hist-val" style="color:${col}">${e.val.toFixed(1)}</span>
+            <span style="font-size:12px;color:var(--text3)">mmol/L</span>
+          </div>
+        </div>${extra2html}${noteHtml}
+      </div>`;
+    });
+  });
+  el.innerHTML+=html;
+}
+
+// ── EXPORT ──
+function exportCSV(){
+  const rows=['Date,Reading,Time Logged,Value (mmol/L),2hr Time,2hr Value (mmol/L),Walk,Note'];
+  dateRange().forEach(date=>{
+    const dayData=data[date]||{};
+    SLOTS.forEach(slot=>{
+      const e=dayData[slot.id];
+      if(!e||e.val===undefined)return;
+      rows.push([
+        date,slot.label,
+        e.time||'',
+        e.val.toFixed(1),
+        e.time2||'',
+        e.val2!==undefined?e.val2.toFixed(1):'',
+        e.walk||'',
+        (e.note||'').replace(/,/g,';').replace(/\n/g,' ')
+      ].join(','));
+    });
+  });
+  const blob=new Blob([rows.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='glucose-log-'+todayKey()+'.csv';
+  a.click();
+}
+
+// Init
+document.getElementById('topDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+renderToday();
+</script>
+</body>
+</html>
