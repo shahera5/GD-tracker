@@ -141,6 +141,16 @@ body{padding-top:var(--safe-top);padding-bottom:calc(var(--safe-bottom)+8px);ove
 
 .install-hint{margin:12px 20px 0;background:var(--blue-bg);border:1px solid rgba(96,165,250,0.2);border-radius:var(--radius-sm);padding:10px 14px;font-size:12px;color:var(--blue);line-height:1.5;display:flex;gap:8px;align-items:flex-start;}
 .hint-close{margin-left:auto;background:transparent;border:none;color:var(--blue);cursor:pointer;font-size:16px;padding:0 0 0 8px;flex-shrink:0;}
+
+.week-summary-card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;}
+.week-label{font-size:11px;font-weight:600;color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;font-family:'DM Mono',monospace;margin-bottom:10px;}
+.week-avgs{display:flex;gap:10px;}
+.week-avg-item{flex:1;background:var(--surface2);border-radius:var(--radius-sm);padding:10px 12px;}
+.week-avg-label{font-size:11px;color:var(--text3);margin-bottom:4px;}
+.week-avg-val{font-size:22px;font-weight:600;font-family:'DM Mono',monospace;letter-spacing:-0.5px;}
+.week-avg-val.normal{color:var(--green);}
+.week-avg-val.high{color:var(--red);}
+.week-avg-unit{font-size:11px;color:var(--text3);margin-top:3px;}
 </style>
 </head>
 <body>
@@ -434,6 +444,20 @@ function buildTodayChart(){
 }
 
 // ── HISTORY ──
+function getWeekKey(date){
+  const d=new Date(date+'T12:00:00');
+  const day=d.getDay();
+  const monday=new Date(d);
+  monday.setDate(d.getDate()-day+(day===0?-6:1));
+  return monday.toISOString().split('T')[0];
+}
+function fmtWeekRange(weekKey){
+  const monday=new Date(weekKey+'T12:00:00');
+  const sunday=new Date(monday);sunday.setDate(monday.getDate()+6);
+  const opts={day:'numeric',month:'short'};
+  return monday.toLocaleDateString('en-GB',opts)+' – '+sunday.toLocaleDateString('en-GB',opts);
+}
+
 function renderHistory(){
   const el=document.getElementById('view-history');
   el.innerHTML=`<div class="action-row"><button class="action-btn primary" onclick="exportCSV()">&#8675; Export CSV</button></div>`;
@@ -453,41 +477,70 @@ function renderHistory(){
     return;
   }
 
-  let html='';
+  // Group dates by week (Monday start)
+  const weekGroups={};
   dates.forEach(date=>{
-    const dayData=data[date]||{};
-    const daySlots=SLOTS.filter(s=>dayData[s.id]?.val!==undefined);
-    if(!daySlots.length)return;
-    html+=`<div class="hist-date-div">${fmtDateLong(date)}</div>`;
-    daySlots.forEach(slot=>{
-      const e=dayData[slot.id];
-      const cls=classify(e.val,slot.normal);
-      const col=statusColor(cls);
-      const oor=isOutOfRange(e,slot);
-      const timeHtml=e.time?`<span class="hist-time">🕐 ${e.time}</span>`:'';
-      const walkHtml=e.walk?`<span class="hist-walk">🚶 ${e.walk}</span>`:'';
-      const noteHtml=e.note?`<div class="hist-note"><span>🍽</span><span>${escHtml(e.note)}</span></div>`:'';
-      let extra2html='';
-      if(e.val2!==undefined){
-        const cls2=classify(e.val2,NORMAL_2HR);const col2=statusColor(cls2);
-        const time2Html=e.time2?` · 🕐 ${e.time2}`:'';
-        extra2html=`<div style="padding:0 16px 10px;font-size:13px;color:var(--text3);display:flex;justify-content:space-between;align-items:center">
-          <span>2 hr${time2Html}</span>
-          <span style="font-family:'DM Mono',monospace;font-size:16px;font-weight:600;color:${col2}">${e.val2.toFixed(1)} mmol/L</span>
+    const wk=getWeekKey(date);
+    if(!weekGroups[wk])weekGroups[wk]=[];
+    weekGroups[wk].push(date);
+  });
+  const weekKeys=Object.keys(weekGroups).sort().reverse();
+
+  let html='';
+  weekKeys.forEach(wk=>{
+    const wkDates=weekGroups[wk];
+    const fastingVals=wkDates.map(d=>data[d]?.fasting?.val).filter(v=>v!==undefined);
+    const postSlots=['post_breakfast','post_lunch','post_dinner'];
+    const postMealVals=wkDates.flatMap(d=>postSlots.map(s=>data[d]?.[s]?.val).filter(v=>v!==undefined));
+    const avgFasting=fastingVals.length?fmt1(fastingVals.reduce((a,b)=>a+b,0)/fastingVals.length):null;
+    const avgPostMeal=postMealVals.length?fmt1(postMealVals.reduce((a,b)=>a+b,0)/postMealVals.length):null;
+
+    html+=`<div class="week-summary-card"><div class="week-label">Week of ${fmtWeekRange(wk)}</div><div class="week-avgs">`;
+    if(avgFasting!==null){
+      const fc=avgFasting>5.5?'high':'normal';
+      html+=`<div class="week-avg-item"><div class="week-avg-label">Avg Fasting</div><div class="week-avg-val ${fc}">${avgFasting.toFixed(1)}</div><div class="week-avg-unit">mmol/L &middot; ${fastingVals.length} reading${fastingVals.length>1?'s':''}</div></div>`;
+    }
+    if(avgPostMeal!==null){
+      const pc=avgPostMeal>7.8?'high':'normal';
+      html+=`<div class="week-avg-item"><div class="week-avg-label">Avg Post-Meal</div><div class="week-avg-val ${pc}">${avgPostMeal.toFixed(1)}</div><div class="week-avg-unit">mmol/L &middot; ${postMealVals.length} reading${postMealVals.length>1?'s':''}</div></div>`;
+    }
+    html+=`</div></div>`;
+
+    wkDates.forEach(date=>{
+      const dayData=data[date]||{};
+      const daySlots=SLOTS.filter(s=>dayData[s.id]?.val!==undefined);
+      if(!daySlots.length)return;
+      html+=`<div class="hist-date-div">${fmtDateLong(date)}</div>`;
+      daySlots.forEach(slot=>{
+        const e=dayData[slot.id];
+        const cls=classify(e.val,slot.normal);
+        const col=statusColor(cls);
+        const oor=isOutOfRange(e,slot);
+        const timeHtml=e.time?`<span class="hist-time">🕐 ${e.time}</span>`:'';
+        const walkHtml=e.walk?`<span class="hist-walk">🚶 ${e.walk}</span>`:'';
+        const noteHtml=e.note?`<div class="hist-note"><span>🍽</span><span>${escHtml(e.note)}</span></div>`:'';
+        let extra2html='';
+        if(e.val2!==undefined){
+          const cls2=classify(e.val2,NORMAL_2HR);const col2=statusColor(cls2);
+          const time2Html=e.time2?` · 🕐 ${e.time2}`:'';
+          extra2html=`<div style="padding:0 16px 10px;font-size:13px;color:var(--text3);display:flex;justify-content:space-between;align-items:center">
+            <span>2 hr${time2Html}</span>
+            <span style="font-family:'DM Mono',monospace;font-size:16px;font-weight:600;color:${col2}">${e.val2.toFixed(1)} mmol/L</span>
+          </div>`;
+        }
+        html+=`<div class="hist-card${oor?' out-of-range':''}">
+          <div class="hist-main">
+            <div class="hist-left">
+              <div class="hist-slot">${slot.icon} ${slot.label}</div>
+              <div class="hist-meta">${timeHtml}${walkHtml}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="hist-val" style="color:${col}">${e.val.toFixed(1)}</span>
+              <span style="font-size:12px;color:var(--text3)">mmol/L</span>
+            </div>
+          </div>${extra2html}${noteHtml}
         </div>`;
-      }
-      html+=`<div class="hist-card${oor?' out-of-range':''}">
-        <div class="hist-main">
-          <div class="hist-left">
-            <div class="hist-slot">${slot.icon} ${slot.label}</div>
-            <div class="hist-meta">${timeHtml}${walkHtml}</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <span class="hist-val" style="color:${col}">${e.val.toFixed(1)}</span>
-            <span style="font-size:12px;color:var(--text3)">mmol/L</span>
-          </div>
-        </div>${extra2html}${noteHtml}
-      </div>`;
+      });
     });
   });
   el.innerHTML+=html;
