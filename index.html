@@ -880,6 +880,17 @@ async function initSync(){
 }
 
 function checkUrlSessionKey(){
+  // Query param (?sync=) is preserved by iOS when adding to home screen; hash (#sync=) is stripped
+  const qKey=new URLSearchParams(location.search).get('sync');
+  if(qKey&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(qKey)){
+    const k=qKey.toLowerCase();
+    if(k!==localStorage.getItem(SYNC_KEY_STORAGE)){
+      localStorage.setItem(SYNC_KEY_STORAGE,k);
+      Object.keys(localStorage).filter(x=>x.startsWith('gsync_ts_')).forEach(x=>localStorage.removeItem(x));
+    }
+    return; // Keep param in URL so home screen reopens always work
+  }
+  // Fallback: check hash for desktop browsers
   const m=location.hash.match(/[#&]sync=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
   if(m){
     const k=m[1].toLowerCase();
@@ -910,7 +921,7 @@ function copySyncCode(){
   copyText(getSessionKey(),document.querySelector('[onclick="copySyncCode()"]'));
 }
 function copyShareableLink(){
-  const url='https://shahera5.github.io/GD-tracker/#sync='+getSessionKey();
+  const url='https://shahera5.github.io/GD-tracker/?sync='+getSessionKey();
   copyText(url,document.querySelector('[onclick="copyShareableLink()"]'));
 }
 
