@@ -202,9 +202,10 @@ body{padding-top:var(--safe-top);padding-bottom:calc(var(--safe-bottom)+8px);ove
       <div class="modal-desc">Your data is saved to the cloud. Use the same sync code on all your devices — laptop, phone, or any browser.</div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:500">Your sync code</div>
       <div class="code-box" id="syncCodeDisplay">loading…</div>
-      <button class="modal-btn primary" onclick="copySyncCode()">Copy Sync Code</button>
+      <button class="modal-btn primary" onclick="copyShareableLink()">Copy Link (open on any device)</button>
+      <button class="modal-btn ghost" onclick="copySyncCode()" style="margin-top:6px">Copy raw sync code</button>
       <div class="modal-divider"></div>
-      <div style="font-size:13px;color:var(--text2)">To link another device, paste its sync code below:</div>
+      <div style="font-size:13px;color:var(--text2)">Or paste a sync code from another device:</div>
       <input class="sync-input" id="syncCodeInput" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autocomplete="off" spellcheck="false">
       <button class="modal-btn ghost" onclick="switchSyncCode()">Use This Code</button>
       <button class="modal-btn ghost" onclick="closeSyncModal()" style="margin-top:4px">Done</button>
@@ -878,6 +879,18 @@ async function initSync(){
   }catch{setSyncDot('err');}
 }
 
+function checkUrlSessionKey(){
+  const m=location.hash.match(/[#&]sync=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+  if(m){
+    const k=m[1].toLowerCase();
+    if(k!==localStorage.getItem(SYNC_KEY_STORAGE)){
+      localStorage.setItem(SYNC_KEY_STORAGE,k);
+      Object.keys(localStorage).filter(x=>x.startsWith('gsync_ts_')).forEach(x=>localStorage.removeItem(x));
+    }
+    history.replaceState(null,'',location.pathname+location.search);
+  }
+}
+
 function showSyncModal(){
   const el=document.getElementById('syncCodeDisplay');
   if(el)el.textContent=getSessionKey();
@@ -885,15 +898,20 @@ function showSyncModal(){
 }
 function closeSyncModal(){document.getElementById('syncModal').style.display='none';}
 
-function copySyncCode(){
-  const k=getSessionKey();
-  const btn=document.querySelector('[onclick="copySyncCode()"]');
-  navigator.clipboard.writeText(k).then(()=>{
+function copyText(text,btn){
+  navigator.clipboard.writeText(text).then(()=>{
     if(btn){const o=btn.textContent;btn.textContent='Copied!';setTimeout(()=>btn.textContent=o,2000);}
   }).catch(()=>{
     const inp=document.getElementById('syncCodeInput');
-    if(inp){inp.value=k;inp.select();}
+    if(inp){inp.value=text;inp.select();}
   });
+}
+function copySyncCode(){
+  copyText(getSessionKey(),document.querySelector('[onclick="copySyncCode()"]'));
+}
+function copyShareableLink(){
+  const url=location.href.split('#')[0]+'#sync='+getSessionKey();
+  copyText(url,document.querySelector('[onclick="copyShareableLink()"]'));
 }
 
 async function switchSyncCode(){
@@ -913,6 +931,7 @@ async function switchSyncCode(){
 }
 
 // Init
+checkUrlSessionKey();
 document.getElementById('topDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
 renderToday();
 initSync();
