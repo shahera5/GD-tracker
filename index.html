@@ -165,50 +165,45 @@ body{padding-top:var(--safe-top);padding-bottom:calc(var(--safe-bottom)+8px);ove
 .add-day-note-btn{display:flex;align-items:center;gap:6px;margin-top:14px;padding:9px 14px;background:transparent;border:1px dashed var(--border2);border-radius:var(--radius-sm);font-size:13px;color:var(--text3);cursor:pointer;font-family:'DM Sans',sans-serif;width:100%;}
 .add-day-note-btn:active{background:var(--surface2);}
 
-.sync-btn{background:transparent;border:none;cursor:pointer;padding:4px 6px;color:var(--text3);font-size:17px;line-height:1;display:flex;align-items:center;gap:3px;}
-.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);flex-shrink:0;}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);flex-shrink:0;display:inline-block;}
 .sync-dot.ok{background:var(--green);}
 .sync-dot.err{background:var(--red);}
 .sync-dot.syncing{background:var(--blue);animation:sbpulse 1s ease-in-out infinite;}
 @keyframes sbpulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
-.modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.65);display:flex;align-items:flex-end;justify-content:center;}
-.modal-sheet{background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px calc(24px + var(--safe-bottom));width:100%;max-width:430px;}
-.modal-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 20px;}
-.modal-title{font-size:16px;font-weight:600;margin-bottom:6px;}
-.modal-desc{font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.5;}
-.code-box{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:12px 14px;font-family:'DM Mono',monospace;font-size:12px;color:var(--text);letter-spacing:0.04em;word-break:break-all;margin-bottom:8px;}
-.modal-btn{width:100%;padding:13px;border-radius:var(--radius-sm);font-size:14px;font-weight:500;font-family:'DM Sans',sans-serif;cursor:pointer;margin-top:8px;}
-.modal-btn.primary{background:var(--blue-bg);border:1px solid rgba(96,165,250,0.35);color:var(--blue);}
-.modal-btn.ghost{background:transparent;border:1px solid var(--border2);color:var(--text3);}
-.modal-divider{border:none;border-top:1px solid var(--border);margin:18px 0 14px;}
-.sync-input{width:100%;height:44px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 12px;font-size:13px;font-family:'DM Mono',monospace;color:var(--text);outline:none;margin-top:8px;}
-.sync-input:focus{border-color:rgba(96,165,250,0.5);}
+.signout-btn{background:transparent;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:4px 2px;line-height:1;}
+.signout-btn:active{color:var(--text);}
+.login-overlay{position:fixed;inset:0;z-index:300;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:32px 24px;}
+.login-card{width:100%;max-width:340px;display:flex;flex-direction:column;align-items:center;}
+.login-title{font-size:22px;font-weight:600;letter-spacing:-0.5px;margin-bottom:8px;text-align:center;}
+.login-desc{font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:28px;text-align:center;}
+.login-input{width:100%;height:52px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 16px;font-size:16px;color:var(--text);outline:none;font-family:'DM Sans',sans-serif;-webkit-appearance:none;}
+.login-input:focus{border-color:rgba(96,165,250,0.5);}
+.login-btn{width:100%;height:52px;background:var(--blue-bg);border:1px solid rgba(96,165,250,0.35);border-radius:var(--radius-sm);font-size:15px;font-weight:500;color:var(--blue);cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:12px;}
+.login-btn:active{background:rgba(96,165,250,0.2);}
+.login-btn:disabled{opacity:0.5;cursor:default;}
+.login-ghost-btn{width:100%;height:44px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:14px;color:var(--text3);cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:10px;}
+.user-email{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 </style>
 </head>
 <body>
+<div id="loginScreen" class="login-overlay">
+  <div class="login-card">
+    <div style="font-size:48px;margin-bottom:20px">🩸</div>
+    <div class="login-title">Glucose Log</div>
+    <div class="login-desc">Sign in to keep your readings synced across all your devices.</div>
+    <input type="email" id="loginEmail" class="login-input" placeholder="your@email.com" autocomplete="email">
+    <button class="login-btn" id="loginBtn" onclick="sendMagicLink()">Send sign-in link</button>
+  </div>
+</div>
+
 <div class="app">
   <div class="topbar">
     <div class="app-title">Glucose Log</div>
     <div style="display:flex;align-items:center;gap:10px">
-      <button class="sync-btn" onclick="showSyncModal()" aria-label="Sync settings">☁<span class="sync-dot" id="syncDot"></span></button>
+      <span class="user-email" id="userEmailDisplay"></span>
+      <span class="sync-dot" id="syncDot"></span>
+      <button class="signout-btn" onclick="signOut()" aria-label="Sign out" title="Sign out">↩</button>
       <div class="app-date" id="topDate"></div>
-    </div>
-  </div>
-
-  <div id="syncModal" class="modal-overlay" style="display:none">
-    <div class="modal-sheet">
-      <div class="modal-handle"></div>
-      <div class="modal-title">Cross-Device Sync</div>
-      <div class="modal-desc">Your data is saved to the cloud. Use the same sync code on all your devices — laptop, phone, or any browser.</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:500">Your sync code</div>
-      <div class="code-box" id="syncCodeDisplay">loading…</div>
-      <button class="modal-btn primary" onclick="copyShareableLink()">Copy Link (open on any device)</button>
-      <button class="modal-btn ghost" onclick="copySyncCode()" style="margin-top:6px">Copy raw sync code</button>
-      <div class="modal-divider"></div>
-      <div style="font-size:13px;color:var(--text2)">Or paste a sync code from another device:</div>
-      <input class="sync-input" id="syncCodeInput" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autocomplete="off" spellcheck="false">
-      <button class="modal-btn ghost" onclick="switchSyncCode()">Use This Code</button>
-      <button class="modal-btn ghost" onclick="closeSyncModal()" style="margin-top:4px">Done</button>
     </div>
   </div>
 
@@ -241,7 +236,8 @@ body{padding-top:var(--safe-top);padding-bottom:calc(var(--safe-bottom)+8px);ove
 <script>
 const SUPABASE_URL='https://aqpxicoejkbscqymxqso.supabase.co';
 const SUPABASE_ANON_KEY='sb_publishable_vSmnDUbGhA5aT7oogojoUg_itfbA2vC';
-const SYNC_KEY_STORAGE='glucoseSync_key';
+const AUTH_KEY='glucoseAuth_v1';
+let authState=null;
 
 const SLOTS=[
   {id:'fasting',       label:'Fasting (before breakfast)',icon:'🌙',normal:[3.9,5.5],has2hr:false},
@@ -268,7 +264,7 @@ function load(){try{return JSON.parse(localStorage.getItem(KEY)||'{}');}catch{re
 function saveLocal(d){try{localStorage.setItem(KEY,JSON.stringify(d));}catch{alert('Storage full — please export your data.');}}
 function save(d,date){saveLocal(d);if(date)pushDay(date);}
 
-let data=load();
+let data={};
 let view='today';
 let activeDate=todayKey();
 let trendSlot='all';
@@ -806,12 +802,9 @@ function exportCSV(){
   a.click();
 }
 
-// ── SUPABASE SYNC ──
-function getSessionKey(){
-  let k=localStorage.getItem(SYNC_KEY_STORAGE);
-  if(!k){k=crypto.randomUUID();localStorage.setItem(SYNC_KEY_STORAGE,k);}
-  return k;
-}
+// ── AUTH ──
+function parseJwt(t){try{return JSON.parse(atob(t.split('.')[1]));}catch{return null;}}
+function tokenFresh(t){const p=parseJwt(t);return p&&p.exp*1000>Date.now()+30000;}
 
 function setSyncDot(status){
   const dot=document.getElementById('syncDot');
@@ -819,40 +812,142 @@ function setSyncDot(status){
   dot.className='sync-dot'+(status==='ok'?' ok':status==='err'?' err':status==='syncing'?' syncing':'');
 }
 
+function loadAuthSession(){try{return JSON.parse(localStorage.getItem(AUTH_KEY));}catch{return null;}}
+
+function storeAuthSession(accessToken,refreshToken){
+  const p=parseJwt(accessToken);
+  authState={userId:p?.sub,email:p?.email,accessToken,refreshToken};
+  localStorage.setItem(AUTH_KEY,JSON.stringify(authState));
+  const el=document.getElementById('userEmailDisplay');
+  if(el)el.textContent=authState.email||'';
+}
+
+async function refreshSession(refreshToken){
+  try{
+    const res=await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token',{
+      method:'POST',
+      headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({refresh_token:refreshToken})
+    });
+    if(!res.ok)return false;
+    const d=await res.json();
+    storeAuthSession(d.access_token,d.refresh_token);
+    return true;
+  }catch{return false;}
+}
+
+async function initAuth(){
+  // Handle magic link callback (#access_token=...&refresh_token=...)
+  const hash=new URLSearchParams(location.hash.replace('#',''));
+  const at=hash.get('access_token'),rt=hash.get('refresh_token');
+  if(at&&rt){
+    history.replaceState(null,'',location.pathname+location.search);
+    storeAuthSession(at,rt);
+    showApp();return;
+  }
+  // Try stored session
+  const stored=loadAuthSession();
+  if(stored){
+    if(tokenFresh(stored.accessToken)){authState=stored;showApp();return;}
+    if(await refreshSession(stored.refreshToken)){showApp();return;}
+  }
+  showLoginScreen();
+}
+
+function showLoginScreen(){
+  document.getElementById('loginScreen').style.display='flex';
+}
+
+function showApp(){
+  document.getElementById('loginScreen').style.display='none';
+  const el=document.getElementById('userEmailDisplay');
+  if(el&&authState?.email)el.textContent=authState.email;
+  document.getElementById('topDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+  data=load();
+  renderToday();
+  initSync();
+}
+
+function signOut(){
+  authState=null;
+  localStorage.removeItem(AUTH_KEY);
+  data={};saveLocal({});
+  showLoginScreen();
+}
+
+async function sendMagicLink(){
+  const inp=document.getElementById('loginEmail');
+  const email=(inp?.value||'').trim();
+  if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    if(inp){inp.style.borderColor='#f87171';setTimeout(()=>inp.style.borderColor='',2000);}
+    return;
+  }
+  const btn=document.getElementById('loginBtn');
+  if(btn){btn.textContent='Sending…';btn.disabled=true;}
+  try{
+    const res=await fetch(SUPABASE_URL+'/auth/v1/otp',{
+      method:'POST',
+      headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({email,create_user:true})
+    });
+    if(res.ok){
+      document.getElementById('loginScreen').innerHTML=`<div class="login-card">
+        <div style="font-size:48px;margin-bottom:20px">📬</div>
+        <div class="login-title">Check your email</div>
+        <div class="login-desc">We sent a sign-in link to<br><strong style="color:var(--text)">${escHtml(email)}</strong><br><br>Tap the link in the email to sign in.</div>
+        <button class="login-ghost-btn" onclick="resetLogin()">Use a different email</button>
+      </div>`;
+    }else{
+      if(btn){btn.textContent='Send sign-in link';btn.disabled=false;}
+    }
+  }catch{
+    if(btn){btn.textContent='Send sign-in link';btn.disabled=false;}
+  }
+}
+
+function resetLogin(){
+  document.getElementById('loginScreen').innerHTML=`<div class="login-card">
+    <div style="font-size:48px;margin-bottom:20px">🩸</div>
+    <div class="login-title">Glucose Log</div>
+    <div class="login-desc">Sign in to keep your readings synced across all your devices.</div>
+    <input type="email" id="loginEmail" class="login-input" placeholder="your@email.com" autocomplete="email">
+    <button class="login-btn" id="loginBtn" onclick="sendMagicLink()">Send sign-in link</button>
+  </div>`;
+}
+
+// ── SYNC ──
 async function pushDay(date){
-  if(!data[date])return;
-  const k=getSessionKey();
+  if(!data[date]||!authState)return;
   try{
     const res=await fetch(SUPABASE_URL+'/rest/v1/glucose_readings',{
       method:'POST',
-      headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
-      body:JSON.stringify({session_key:k,date:date,day_data:data[date],updated_at:new Date().toISOString()})
+      headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+authState.accessToken,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify({session_key:authState.userId,date:date,day_data:data[date],updated_at:new Date().toISOString()})
     });
     if(res.ok){localStorage.setItem('gsync_ts_'+date,new Date().toISOString());setSyncDot('ok');}
     else setSyncDot('err');
   }catch{setSyncDot('err');}
 }
 
-async function pushDayWithKey(sessionKey,date){
-  if(!data[date])return;
+async function pushDayWithKey(userId,date){
+  if(!data[date]||!authState)return;
   try{
     const res=await fetch(SUPABASE_URL+'/rest/v1/glucose_readings',{
       method:'POST',
-      headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
-      body:JSON.stringify({session_key:sessionKey,date:date,day_data:data[date],updated_at:new Date().toISOString()})
+      headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+authState.accessToken,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify({session_key:userId,date:date,day_data:data[date],updated_at:new Date().toISOString()})
     });
     if(res.ok)localStorage.setItem('gsync_ts_'+date,new Date().toISOString());
   }catch{}
 }
 
 async function initSync(){
+  if(!authState)return;
   setSyncDot('syncing');
-  const k=getSessionKey();
-  const codeEl=document.getElementById('syncCodeDisplay');
-  if(codeEl)codeEl.textContent=k;
+  const uid=authState.userId;
   try{
-    const res=await fetch(SUPABASE_URL+'/rest/v1/glucose_readings?session_key=eq.'+k+'&select=date,day_data,updated_at&order=date.asc',{
-      headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY}
+    const res=await fetch(SUPABASE_URL+'/rest/v1/glucose_readings?session_key=eq.'+uid+'&select=date,day_data,updated_at&order=date.asc',{
+      headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+authState.accessToken}
     });
     if(!res.ok){setSyncDot('err');return;}
     const rows=await res.json();
@@ -867,7 +962,7 @@ async function initSync(){
         changed=true;
       }
     });
-    const pushes=Object.keys(data).filter(d=>!remoteKeys.has(d)).map(d=>pushDayWithKey(k,d));
+    const pushes=Object.keys(data).filter(d=>!remoteKeys.has(d)).map(d=>pushDayWithKey(uid,d));
     if(pushes.length)await Promise.all(pushes);
     if(changed){
       saveLocal(data);
@@ -879,73 +974,8 @@ async function initSync(){
   }catch{setSyncDot('err');}
 }
 
-function checkUrlSessionKey(){
-  // Query param (?sync=) is preserved by iOS when adding to home screen; hash (#sync=) is stripped
-  const qKey=new URLSearchParams(location.search).get('sync');
-  if(qKey&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(qKey)){
-    const k=qKey.toLowerCase();
-    if(k!==localStorage.getItem(SYNC_KEY_STORAGE)){
-      localStorage.setItem(SYNC_KEY_STORAGE,k);
-      Object.keys(localStorage).filter(x=>x.startsWith('gsync_ts_')).forEach(x=>localStorage.removeItem(x));
-    }
-    return; // Keep param in URL so home screen reopens always work
-  }
-  // Fallback: check hash for desktop browsers
-  const m=location.hash.match(/[#&]sync=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
-  if(m){
-    const k=m[1].toLowerCase();
-    if(k!==localStorage.getItem(SYNC_KEY_STORAGE)){
-      localStorage.setItem(SYNC_KEY_STORAGE,k);
-      Object.keys(localStorage).filter(x=>x.startsWith('gsync_ts_')).forEach(x=>localStorage.removeItem(x));
-    }
-    history.replaceState(null,'',location.pathname+location.search);
-  }
-}
-
-function showSyncModal(){
-  const el=document.getElementById('syncCodeDisplay');
-  if(el)el.textContent=getSessionKey();
-  document.getElementById('syncModal').style.display='flex';
-}
-function closeSyncModal(){document.getElementById('syncModal').style.display='none';}
-
-function copyText(text,btn){
-  navigator.clipboard.writeText(text).then(()=>{
-    if(btn){const o=btn.textContent;btn.textContent='Copied!';setTimeout(()=>btn.textContent=o,2000);}
-  }).catch(()=>{
-    const inp=document.getElementById('syncCodeInput');
-    if(inp){inp.value=text;inp.select();}
-  });
-}
-function copySyncCode(){
-  copyText(getSessionKey(),document.querySelector('[onclick="copySyncCode()"]'));
-}
-function copyShareableLink(){
-  const url='https://shahera5.github.io/GD-tracker/?sync='+getSessionKey();
-  copyText(url,document.querySelector('[onclick="copyShareableLink()"]'));
-}
-
-async function switchSyncCode(){
-  const inp=document.getElementById('syncCodeInput');
-  if(!inp)return;
-  const newKey=inp.value.trim().toLowerCase();
-  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(newKey)){
-    inp.style.borderColor='#f87171';setTimeout(()=>inp.style.borderColor='',2000);return;
-  }
-  localStorage.setItem(SYNC_KEY_STORAGE,newKey);
-  Object.keys(localStorage).filter(k=>k.startsWith('gsync_ts_')).forEach(k=>localStorage.removeItem(k));
-  inp.value='';
-  closeSyncModal();
-  data={};saveLocal(data);
-  data=load();
-  await initSync();
-}
-
 // Init
-checkUrlSessionKey();
-document.getElementById('topDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
-renderToday();
-initSync();
+initAuth();
 </script>
 </body>
 </html>
