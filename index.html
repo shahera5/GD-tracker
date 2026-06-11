@@ -886,10 +886,11 @@ async function sendMagicLink(){
   const btn=document.getElementById('loginBtn');
   if(btn){btn.textContent='Sending…';btn.disabled=true;}
   try{
-    const res=await fetch(SUPABASE_URL+'/auth/v1/otp',{
+    const redirectTo='https://shahera5.github.io/GD-tracker/';
+    const res=await fetch(SUPABASE_URL+'/auth/v1/otp?redirect_to='+encodeURIComponent(redirectTo),{
       method:'POST',
       headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
-      body:JSON.stringify({email,create_user:true,redirect_to:'https://shahera5.github.io/GD-tracker/'})
+      body:JSON.stringify({email,create_user:true})
     });
     if(res.ok){
       document.getElementById('loginScreen').innerHTML=`<div class="login-card">
