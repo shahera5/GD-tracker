@@ -193,6 +193,7 @@ body{padding-top:var(--safe-top);padding-bottom:calc(var(--safe-bottom)+8px);ove
     <div class="login-desc">Sign in to keep your readings synced across all your devices.</div>
     <input type="email" id="loginEmail" class="login-input" placeholder="your@email.com" autocomplete="email">
     <button class="login-btn" id="loginBtn" onclick="sendMagicLink()">Send sign-in link</button>
+    <div id="loginError" style="color:#f87171;font-size:13px;margin-top:12px;min-height:18px;text-align:center"></div>
   </div>
 </div>
 
@@ -888,7 +889,7 @@ async function sendMagicLink(){
     const res=await fetch(SUPABASE_URL+'/auth/v1/otp',{
       method:'POST',
       headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
-      body:JSON.stringify({email,create_user:true,options:{emailRedirectTo:'https://shahera5.github.io/GD-tracker/'}})
+      body:JSON.stringify({email,create_user:true,redirect_to:'https://shahera5.github.io/GD-tracker/'})
     });
     if(res.ok){
       document.getElementById('loginScreen').innerHTML=`<div class="login-card">
@@ -898,7 +899,11 @@ async function sendMagicLink(){
         <button class="login-ghost-btn" onclick="resetLogin()">Use a different email</button>
       </div>`;
     }else{
+      const err=await res.json().catch(()=>({}));
+      const msg=err.msg||err.message||err.error_description||'Something went wrong. Try again in a minute.';
       if(btn){btn.textContent='Send sign-in link';btn.disabled=false;}
+      const errEl=document.getElementById('loginError');
+      if(errEl)errEl.textContent=msg;
     }
   }catch{
     if(btn){btn.textContent='Send sign-in link';btn.disabled=false;}
