@@ -190,10 +190,12 @@ body{padding-top:var(--safe-top);padding-bottom:calc(var(--safe-bottom)+8px);ove
   <div class="login-card">
     <div style="font-size:48px;margin-bottom:20px">🩸</div>
     <div class="login-title">Glucose Log</div>
-    <div class="login-desc">Sign in to keep your readings synced across all your devices.</div>
+    <div class="login-desc">Sign in to sync your readings across all your devices.</div>
     <input type="email" id="loginEmail" class="login-input" placeholder="your@email.com" autocomplete="email">
-    <button class="login-btn" id="loginBtn" onclick="sendMagicLink()">Send sign-in link</button>
-    <div id="loginError" style="color:#f87171;font-size:13px;margin-top:12px;min-height:18px;text-align:center"></div>
+    <input type="password" id="loginPassword" class="login-input" placeholder="password" autocomplete="current-password" style="margin-top:10px">
+    <button class="login-btn" id="loginBtn" onclick="signInWithPassword()">Sign in</button>
+    <button class="login-ghost-btn" onclick="sendPasswordReset()" style="margin-top:6px;font-size:13px">Forgot password?</button>
+    <div id="loginError" style="font-size:13px;margin-top:10px;min-height:18px;text-align:center"></div>
   </div>
 </div>
 
@@ -838,15 +840,19 @@ async function refreshSession(refreshToken){
 }
 
 async function initAuth(){
-  // Handle magic link callback (#access_token=...&refresh_token=...)
   const hash=new URLSearchParams(location.hash.replace('#',''));
-  const at=hash.get('access_token'),rt=hash.get('refresh_token');
+  const at=hash.get('access_token'),rt=hash.get('refresh_token'),type=hash.get('type');
+  if(at&&type==='recovery'){
+    history.replaceState(null,'',location.pathname+location.search);
+    storeAuthSession(at,rt||'');
+    showSetPasswordScreen();
+    return;
+  }
   if(at&&rt){
     history.replaceState(null,'',location.pathname+location.search);
     storeAuthSession(at,rt);
     showApp();return;
   }
-  // Try stored session
   const stored=loadAuthSession();
   if(stored){
     if(tokenFresh(stored.accessToken)){authState=stored;showApp();return;}
@@ -876,49 +882,96 @@ function signOut(){
   showLoginScreen();
 }
 
-async function sendMagicLink(){
-  const inp=document.getElementById('loginEmail');
-  const email=(inp?.value||'').trim();
-  if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
-    if(inp){inp.style.borderColor='#f87171';setTimeout(()=>inp.style.borderColor='',2000);}
+async function signInWithPassword(){
+  const email=(document.getElementById('loginEmail')?.value||'').trim();
+  const password=(document.getElementById('loginPassword')?.value||'');
+  const errEl=document.getElementById('loginError');
+  if(!email||!password){
+    if(errEl){errEl.style.color='#f87171';errEl.textContent='Please enter your email and password.';}
     return;
   }
   const btn=document.getElementById('loginBtn');
-  if(btn){btn.textContent='Sending…';btn.disabled=true;}
+  if(btn){btn.textContent='Signing in…';btn.disabled=true;}
   try{
-    const redirectTo='https://shahera5.github.io/GD-tracker/';
-    const res=await fetch(SUPABASE_URL+'/auth/v1/otp?redirect_to='+encodeURIComponent(redirectTo),{
+    const res=await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=password',{
       method:'POST',
       headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
-      body:JSON.stringify({email,create_user:true})
+      body:JSON.stringify({email,password})
     });
     if(res.ok){
-      document.getElementById('loginScreen').innerHTML=`<div class="login-card">
-        <div style="font-size:48px;margin-bottom:20px">📬</div>
-        <div class="login-title">Check your email</div>
-        <div class="login-desc">We sent a sign-in link to<br><strong style="color:var(--text)">${escHtml(email)}</strong><br><br>Tap the link in the email to sign in.</div>
-        <button class="login-ghost-btn" onclick="resetLogin()">Use a different email</button>
-      </div>`;
+      const d=await res.json();
+      storeAuthSession(d.access_token,d.refresh_token);
+      showApp();
     }else{
       const err=await res.json().catch(()=>({}));
-      const msg=err.msg||err.message||err.error_description||'Something went wrong. Try again in a minute.';
-      if(btn){btn.textContent='Send sign-in link';btn.disabled=false;}
-      const errEl=document.getElementById('loginError');
-      if(errEl)errEl.textContent=msg;
+      const msg=err.msg||err.message||err.error_description||'Invalid email or password.';
+      if(btn){btn.textContent='Sign in';btn.disabled=false;}
+      if(errEl){errEl.style.color='#f87171';errEl.textContent=msg;}
     }
   }catch{
-    if(btn){btn.textContent='Send sign-in link';btn.disabled=false;}
+    if(btn){btn.textContent='Sign in';btn.disabled=false;}
   }
 }
 
-function resetLogin(){
-  document.getElementById('loginScreen').innerHTML=`<div class="login-card">
-    <div style="font-size:48px;margin-bottom:20px">🩸</div>
-    <div class="login-title">Glucose Log</div>
-    <div class="login-desc">Sign in to keep your readings synced across all your devices.</div>
-    <input type="email" id="loginEmail" class="login-input" placeholder="your@email.com" autocomplete="email">
-    <button class="login-btn" id="loginBtn" onclick="sendMagicLink()">Send sign-in link</button>
+async function sendPasswordReset(){
+  const email=(document.getElementById('loginEmail')?.value||'').trim();
+  const errEl=document.getElementById('loginError');
+  if(!email){
+    if(errEl){errEl.style.color='#f87171';errEl.textContent='Enter your email address first.';}
+    return;
+  }
+  const redirectTo='https://shahera5.github.io/GD-tracker/';
+  const res=await fetch(SUPABASE_URL+'/auth/v1/recover?redirect_to='+encodeURIComponent(redirectTo),{
+    method:'POST',
+    headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({email})
+  });
+  if(res.ok){
+    if(errEl){errEl.style.color='#34d399';errEl.textContent='Password reset link sent — check your email.';}
+  }else{
+    const err=await res.json().catch(()=>({}));
+    if(errEl){errEl.style.color='#f87171';errEl.textContent=err.msg||err.message||'Something went wrong.';}
+  }
+}
+
+function showSetPasswordScreen(){
+  const ls=document.getElementById('loginScreen');
+  ls.style.display='flex';
+  ls.innerHTML=`<div class="login-card">
+    <div style="font-size:48px;margin-bottom:20px">🔒</div>
+    <div class="login-title">Set your password</div>
+    <div class="login-desc">Choose a password you'll use to sign in every time.</div>
+    <input type="password" id="newPassword" class="login-input" placeholder="new password (min 8 chars)" autocomplete="new-password">
+    <input type="password" id="newPassword2" class="login-input" placeholder="confirm password" autocomplete="new-password" style="margin-top:10px">
+    <button class="login-btn" id="setPwBtn" onclick="setNewPassword()">Set password</button>
+    <div id="setPwError" style="font-size:13px;margin-top:10px;min-height:18px;text-align:center"></div>
   </div>`;
+}
+
+async function setNewPassword(){
+  const pw=(document.getElementById('newPassword')?.value||'');
+  const pw2=(document.getElementById('newPassword2')?.value||'');
+  const errEl=document.getElementById('setPwError');
+  if(pw.length<8){if(errEl){errEl.style.color='#f87171';errEl.textContent='Password must be at least 8 characters.';}return;}
+  if(pw!==pw2){if(errEl){errEl.style.color='#f87171';errEl.textContent='Passwords do not match.';}return;}
+  const btn=document.getElementById('setPwBtn');
+  if(btn){btn.textContent='Saving…';btn.disabled=true;}
+  try{
+    const res=await fetch(SUPABASE_URL+'/auth/v1/user',{
+      method:'PUT',
+      headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+authState.accessToken,'Content-Type':'application/json'},
+      body:JSON.stringify({password:pw})
+    });
+    if(res.ok){
+      showApp();
+    }else{
+      const err=await res.json().catch(()=>({}));
+      if(btn){btn.textContent='Set password';btn.disabled=false;}
+      if(errEl){errEl.style.color='#f87171';errEl.textContent=err.msg||err.message||'Something went wrong.';}
+    }
+  }catch{
+    if(btn){btn.textContent='Set password';btn.disabled=false;}
+  }
 }
 
 // ── SYNC ──
