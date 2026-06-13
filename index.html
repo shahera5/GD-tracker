@@ -839,6 +839,12 @@ async function refreshSession(refreshToken){
   }catch{return false;}
 }
 
+async function ensureFreshToken(){
+  if(!authState)return false;
+  if(tokenFresh(authState.accessToken))return true;
+  return await refreshSession(authState.refreshToken);
+}
+
 async function initAuth(){
   const hash=new URLSearchParams(location.hash.replace('#',''));
   const at=hash.get('access_token'),rt=hash.get('refresh_token'),type=hash.get('type');
@@ -981,6 +987,7 @@ async function setNewPassword(){
 // ── SYNC ──
 async function pushDay(date){
   if(!data[date]||!authState)return;
+  if(!await ensureFreshToken()){setSyncDot('err');return;}
   try{
     const res=await fetch(SUPABASE_URL+'/rest/v1/glucose_readings',{
       method:'POST',
@@ -1006,6 +1013,7 @@ async function pushDayWithKey(userId,date){
 
 async function initSync(){
   if(!authState){setSyncDot('ok');return;}
+  if(!await ensureFreshToken()){setSyncDot('err');return;}
   setSyncDot('syncing');
   const uid=authState.userId;
   try{
