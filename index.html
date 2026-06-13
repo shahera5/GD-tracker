@@ -865,14 +865,18 @@ function showLoginScreen(){
   document.getElementById('loginScreen').style.display='flex';
 }
 
-function showApp(){
-  document.getElementById('loginScreen').style.display='none';
+async function showApp(){
+  // Show a brief loading state so Supabase data loads before rendering
+  const ls=document.getElementById('loginScreen');
+  ls.innerHTML=`<div class="login-card"><div style="color:var(--text3);font-size:14px">Loading your data…</div></div>`;
+  ls.style.display='flex';
+  data=load();
+  await initSync();
+  ls.style.display='none';
   const el=document.getElementById('userEmailDisplay');
   if(el&&authState?.email)el.textContent=authState.email;
   document.getElementById('topDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
-  data=load();
   renderToday();
-  initSync();
 }
 
 function signOut(){
@@ -1001,7 +1005,7 @@ async function pushDayWithKey(userId,date){
 }
 
 async function initSync(){
-  if(!authState)return;
+  if(!authState){setSyncDot('ok');return;}
   setSyncDot('syncing');
   const uid=authState.userId;
   try{
@@ -1023,12 +1027,7 @@ async function initSync(){
     });
     const pushes=Object.keys(data).filter(d=>!remoteKeys.has(d)).map(d=>pushDayWithKey(uid,d));
     if(pushes.length)await Promise.all(pushes);
-    if(changed){
-      saveLocal(data);
-      if(view==='today')renderToday();
-      else if(view==='history')renderHistory();
-      else if(view==='trend')renderTrend();
-    }
+    if(changed)saveLocal(data);
     setSyncDot('ok');
   }catch{setSyncDot('err');}
 }
